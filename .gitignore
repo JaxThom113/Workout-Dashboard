@@ -1,2 +1,5 @@
 # Ignore environment variables
 *.env
+
+# Ignore data cache because it is made in code
+cache.json
