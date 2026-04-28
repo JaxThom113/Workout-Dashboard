@@ -5,6 +5,7 @@ $page = $_GET['page'] ?? 'dashboard';
 // list of allowed (existing) pages
 $allowedPages = [
     'dashboard', 
+    'training-log',
     'about'
 ];
 

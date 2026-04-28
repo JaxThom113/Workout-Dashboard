@@ -1,8 +1,26 @@
 .nav-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     background: #1a1a2e;
+    border-radius: 8px;
     padding: 1rem;
+    margin-top: 1rem;
     margin-bottom: 2rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.nav-bar h2 {
+    font-size: 1.2rem;
+    margin: auto;
+    color: white;
+    display: inline-block;
+    justify-content: left;
+}
+
+.nav-bar img {
+    display: inline-block;
+    justify-content: left;
 }
 
 .nav-bar a {
@@ -12,6 +30,7 @@
     margin-right: 0.5rem;
     border-radius: 4px;
     display: inline-block;
+    justify-content: right;
     transition: background 0.3s ease;
 }
 
@@ -20,5 +39,14 @@
 }
 
 .nav-bar a.active {
-    background: #e94560;
+    background: #bb9039;
+}
+
+.nav-links {
+    display: flex;
+}
+
+.nav-header {
+    display: flex;
+    gap: 1rem;
 }

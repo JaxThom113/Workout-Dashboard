@@ -1,7 +1,6 @@
 .about-content {
-    max-width: 800px;
     margin: 0 auto;
-    padding: 2rem;
+    padding: 1rem;
 }
 
 .about-content h1 {
@@ -15,7 +14,7 @@
     font-size: 1.3rem;
     margin-top: 1.5rem;
     margin-bottom: 0.8rem;
-    border-bottom: 2px solid #e94560;
+    border-bottom: 2px solid #bb9039;
     padding-bottom: 0.5rem;
 }
 
@@ -35,11 +34,14 @@
     line-height: 1.6;
 }
 
-.about-content a {
-    color: #e94560;
-    text-decoration: none;
-}
-
 .about-content a:hover {
     text-decoration: underline;
+}
+
+.about-content img {
+    max-width: 650px;
+    width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
 }
