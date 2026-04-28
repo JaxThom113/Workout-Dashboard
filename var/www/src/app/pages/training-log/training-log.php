@@ -11,16 +11,6 @@ define('CACHE_FILE', '/var/www/database/cache/cache.json');
     Cache
 */
 
-// manual refresh: visit /?refresh=1 to bust the cache immediately
-if (isset($_GET['refresh'])) 
-{
-    if (file_exists(CACHE_FILE)) 
-        unlink(CACHE_FILE);
-    
-    header('Location: /');
-    exit;
-}
-
 function get_cached_pages(): ?array 
 {
     if (!file_exists(CACHE_FILE)) 
@@ -47,7 +37,7 @@ function notion_get(string $endpoint): array
     $ch = curl_init("https://api.notion.com/v1/$endpoint");
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER     => [
+        CURLOPT_HTTPHEADER => [
             'Authorization: Bearer ' . NOTION_TOKEN,
             'Notion-Version: 2022-06-28',
         ],
@@ -66,7 +56,7 @@ function get_children(string $block_id): array
     $cursor = null;
 
     do {
-        $url  = "blocks/$block_id/children?page_size=100";
+        $url = "blocks/$block_id/children?page_size=100";
         if ($cursor) 
             $url .= "&start_cursor=$cursor";
 
@@ -214,6 +204,7 @@ function render_page_blocks(string $page_id): string
 function find_workout_pages(string $page_id): array 
 {
     $children = get_children($page_id);
+    $ignore_pages = ["Body Weight Log", "Training Splits", "Rep Maxes"];
     $workout_pages = [];
 
     foreach ($children as $block) 
@@ -223,6 +214,10 @@ function find_workout_pages(string $page_id): array
 
         $title = $block['child_page']['title'] ?? 'Untitled';
         $child_id = $block['id'];
+
+        // skip over specified pages
+        if (in_array($title, $ignore_pages))
+            continue;
 
         // check for MM/DD/YY - Workout Type format
         if (preg_match('/^\d{1,2}\/\d{1,2}\/\d{2,4}\s*-\s*.+$/', $title)) 

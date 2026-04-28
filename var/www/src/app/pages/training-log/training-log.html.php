@@ -7,7 +7,7 @@
         <?php else: ?>
             <span>just loaded from Notion!</span>
         <?php endif; ?>
-        <a href="/?page=dashboard&refresh=1">🔄 Refresh from Notion</a>
+        <a href="/?page=training-log&refresh=1">🔄 Refresh from Notion</a>
     </div>
 </div>
 

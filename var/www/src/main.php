@@ -1,4 +1,16 @@
 <?php
+// handle cache refresh before any output
+if (isset($_GET['refresh'])) 
+{
+    define('CACHE_FILE', '/var/www/database/cache/cache.json');
+    if (file_exists(CACHE_FILE)) 
+        unlink(CACHE_FILE);
+    
+    $page = $_GET['page'] ?? 'dashboard';
+    header('Location: /?page=' . urlencode($page));
+    exit;
+}
+
 // get the requested page from URL parameter, default to dashboard
 $page = $_GET['page'] ?? 'dashboard';
 
