@@ -1,0 +1,26 @@
+Parse this workout log and extract the following data in JSON format:
+{
+    "date": "YYYY-MM-DD",
+    "type": "strength|cardio|flexibility|other",
+    "exercises": [
+        {
+            "name": "exercise name",
+            "number": 1,
+            "notes": "any notes",
+            "sets": [
+                {
+                    "number": 1,
+                    "reps": 8,
+                    "warmup": false,
+                    "dropset": false,
+                    "failure": false
+                }
+            ]
+        }
+    ]
+}
+
+WORKOUT LOG:
+{{htmlContent}}
+
+Return ONLY valid JSON, no additional text.

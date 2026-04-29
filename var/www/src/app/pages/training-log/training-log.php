@@ -1,8 +1,11 @@
 <?php
-// load secrets from .env
+
+// load environment variables
 $env = parse_ini_file(__DIR__ . '/../../../../.env');
-define('NOTION_TOKEN', $env['NOTION_TOKEN'] ?? '');
-define('TRAINING_PAGE_ID', $env['TRAINING_PAGE_ID'] ?? '');
+define('NOTION_TOKEN', $env['NOTION_TOKEN']);
+define('TRAINING_PAGE_ID', $env['TRAINING_PAGE_ID']);
+define('GEMINI_API_KEY', $env['GEMINI_API_KEY']);
+define('GEMINI_MODEL', $env['GEMINI_MODEL']);
 
 // cache json
 define('CACHE_FILE', '/var/www/database/cache/cache.json');
@@ -29,12 +32,14 @@ function save_cache(array $pages): void
     file_put_contents(CACHE_FILE, json_encode($pages));
 }
 
+
+
 /*
     Make a GET request to the Notion API.
 */
 function notion_get(string $endpoint): array 
 {
-    $ch = curl_init("https://api.notion.com/v1/$endpoint");
+    $ch = curl_init('https://api.notion.com/v1/' . $endpoint);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HTTPHEADER => [
@@ -277,6 +282,64 @@ if ($workout_pages === null)
     $workout_pages = find_workout_pages(TRAINING_PAGE_ID);
     sort_workout_pages($workout_pages);
     save_cache($workout_pages);
+}
+
+require_once __DIR__ . '/../../../services/Database.php';
+require_once __DIR__ . '/../../../services/GeminiService.php';
+require_once __DIR__ . '/../../../services/WorkoutRepository.php';
+
+$db_message = null;
+$db_message_type = null;
+
+// check if API key and model are given, and if process is specified in the current url
+if (GEMINI_API_KEY && GEMINI_MODEL && isset($_GET['process'])) 
+{
+    try 
+    {
+        $gemini = new GeminiService(GEMINI_API_KEY, GEMINI_MODEL);
+        $repo = new WorkoutRepository(Database::getConnection());
+
+        $successCount = 0;
+        $failureCount = 0;
+
+        // add workouts to database by reading through them with Gemini
+        foreach ($workout_pages as $page) 
+        {
+            $parsed = $gemini->parseWorkoutLog($page['content']);
+            if ($parsed) 
+            {
+                if ($repo->saveWorkout($parsed)) 
+                {
+                    $successCount++;
+                } 
+                else 
+                {
+                    $failureCount++;
+                }
+            } 
+            else 
+            {
+                $failureCount++;
+            }
+        }
+
+        if ($successCount > 0) 
+        {
+            $db_message = "✓ Successfully processed $successCount workouts";
+            $db_message_type = 'success';
+        }
+        if ($failureCount > 0) 
+        {
+            $db_message = ($db_message ? $db_message . ' | ' : '') . "⚠ Failed to process $failureCount workout(s)";
+            $db_message_type = $failureCount === count($workout_pages) ? 'error' : 'warning';
+        }
+    } 
+    catch (Exception $e) 
+    {
+        $db_message = "✗ Error: " . $e->getMessage();
+        $db_message_type = 'error';
+        error_log("Database update error: " . $e->getMessage());
+    }
 }
 
 $cache_age = null;

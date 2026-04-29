@@ -1,9 +1,14 @@
-services: 
+services:
   www:
-    #build: . # this will use the custom Dockerfile instead of the stock image below
-    image: php:8.5-apache
+    build: . # this will use the custom Dockerfile instead of the stock image below
+    #image: php:8.5-apache
     volumes: 
       - "./var/www:/var/www" # this needs to be /var/www/ and not /var/www/html bc the .env is in the www
     ports:
       - 80:80
       - 443:443
+    networks:
+      - dashboard-docker
+networks:
+  dashboard-docker:
+    driver: bridge # allows containers on the same network to forward traffic between containers
