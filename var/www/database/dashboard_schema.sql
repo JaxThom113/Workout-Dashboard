@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS `Exercise` (
 
 -- Data exporting was unselected.
 
--- Dumping structure for table dashboard.Set
-CREATE TABLE IF NOT EXISTS `Set` (
+-- Dumping structure for table dashboard.Exercise_Set
+CREATE TABLE IF NOT EXISTS `Exercise_Set` (
   `set_id` binary(16) DEFAULT NULL,
   `exercise_id` binary(16) DEFAULT NULL,
   `number` int DEFAULT NULL,

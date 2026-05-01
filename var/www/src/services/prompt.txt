@@ -1,12 +1,12 @@
 Parse this workout log and extract the following data in JSON format:
 {
     "date": "YYYY-MM-DD",
-    "type": "strength|cardio|flexibility|other",
+    "type": "push", "pull", "legs", (or another named type)
     "exercises": [
         {
             "name": "exercise name",
-            "number": 1,
-            "notes": "any notes",
+            "number": 1, (order in which exercises go in this log, top = first, bottom = last)
+            "notes": "any notes", (look for any text around this exercise block that appears to be a note)
             "sets": [
                 {
                     "number": 1,

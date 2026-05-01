@@ -5,6 +5,26 @@
 */
 require __DIR__ . '/../services/Database.php';
 
+/*
+    Cache & Headers
+*/
+
+// Handle cache refresh before ANY output (must come before headers)
+if (isset($_GET['refresh'])) 
+{
+    define('CACHE_FILE', __DIR__ . '/../../database/cache/cache.json');
+    if (file_exists(CACHE_FILE)) 
+        unlink(CACHE_FILE);
+    
+    $page = $_GET['page'] ?? 'dashboard';
+    header('Location: /?page=' . urlencode($page));
+    exit;
+}
+
+/*
+    Database Connection (debug output)
+*/
+
 try 
 {
     $conn = Database::connect();
@@ -22,22 +42,6 @@ try
 catch (Exception $e) 
 {
     echo "✗ Connection failed: " . htmlspecialchars($e->getMessage());
-}
-
-/*
-    Cache
-*/
-
-// handle cache refresh before any output
-if (isset($_GET['refresh'])) 
-{
-    define('CACHE_FILE', '/var/www/database/cache/cache.json');
-    if (file_exists(CACHE_FILE)) 
-        unlink(CACHE_FILE);
-    
-    $page = $_GET['page'] ?? 'dashboard';
-    header('Location: /?page=' . urlencode($page));
-    exit;
 }
 
 /*
