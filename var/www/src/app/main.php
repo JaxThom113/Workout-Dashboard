@@ -1,11 +1,6 @@
 <?php
 
 /*
-    Database
-*/
-require __DIR__ . '/../services/Database.php';
-
-/*
     Cache & Headers
 */
 
@@ -20,31 +15,6 @@ if (isset($_GET['refresh']))
     header('Location: /?page=' . urlencode($page));
     exit;
 }
-
-/*
-    Database Connection (debug output)
-*/
-
-$debugOutput = "";
-try 
-{
-    $conn = Database::connect();
-    $debugOutput .= "✓ Successfully connected to AWS RDS!<br>";
-    $debugOutput .= "Database: " . htmlspecialchars($conn->get_charset()->charset) . "<br>";    
-    
-    // Test query
-    $result = $conn->query("SELECT VERSION()");
-    if ($result) 
-    {
-        $row = $result->fetch_row();
-        $debugOutput .= "MySQL Version: " . htmlspecialchars($row[0]) . "<br>";
-    }
-} 
-catch (Exception $e) 
-{
-    $debugOutput .= "Connection failed: " . htmlspecialchars($e->getMessage());
-}
-
 
 /*
     Routing

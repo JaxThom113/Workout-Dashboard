@@ -52,14 +52,6 @@ class PollingService
             if (!$this->gemini || !$this->repository)
                 throw new RuntimeException('GeminiService and WorkoutRepository are required for ingestion mode.');
 
-            if (!$this->gemini->preflightModel())
-            {
-                $error = $this->gemini->getLastError() ?: 'Unknown Gemini error';
-                throw new RuntimeException(
-                    "Gemini preflight failed for model (HTTP " . ($this->gemini->getLastHttpCode() ?? 'unknown') . "): $error"
-                );
-            }
-
             $seenIds = [];
             foreach ($unseenPages as $page)
             {
@@ -68,7 +60,20 @@ class PollingService
                 {
                     $stats['parsed_failures']++;
 
-                    if ($this->gemini->getLastHttpCode() === 404)
+                    $httpCode = $this->gemini->getLastHttpCode();
+                    
+                    // check for Gemini 429 TooManyRequests rate limit error
+                    if ($httpCode === 429)
+                    {
+                        $retryAfter = $this->gemini->getRateLimitRetryAfter();
+                        $stats['stopped_early'] = true;
+                        $stats['stop_reason'] = "Rate limited by Gemini API (429). Quota exceeded. Retry in {$retryAfter}s or upgrade to paid tier.";
+                        $hasHardFailure = true;
+                        break;
+                    }
+                    
+                    // check for Gemini 404 NotFound error
+                    if ($httpCode === 404)
                     {
                         $stats['stopped_early'] = true;
                         $stats['stop_reason'] = 'Gemini returned 404 Not Found. Check configured model/version.';

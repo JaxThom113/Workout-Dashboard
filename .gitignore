@@ -1,5 +1,8 @@
 # Ignore environment variables
 *.env
 
-# Ignore data cache because it is made in code
+# Ignore log files and cache
 cache.json
+training_log_poll.log
+poll_training_logs.lock
+sync_state.json
