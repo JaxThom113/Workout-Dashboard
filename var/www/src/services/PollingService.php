@@ -12,14 +12,18 @@ class PollingService
     private SyncState $syncState;
     private ?GeminiService $gemini;
     private ?WorkoutRepository $repository;
+    private int $geminiBatchSize;
+    private float $batchDelaySeconds;
 
-    public function __construct(NotionService $notionService, CacheService $cache, SyncState $syncState, ?GeminiService $gemini = null, ?WorkoutRepository $repository = null) 
+    public function __construct(NotionService $notionService, CacheService $cache, SyncState $syncState, ?GeminiService $gemini = null, ?WorkoutRepository $repository = null, int $geminiBatchSize = 5, float $batchDelaySeconds = 5.0) 
     {
         $this->notionService = $notionService;
         $this->cache = $cache;
         $this->syncState = $syncState;
         $this->gemini = $gemini;
         $this->repository = $repository;
+        $this->geminiBatchSize = max(1, $geminiBatchSize);
+        $this->batchDelaySeconds = max(0.0, $batchDelaySeconds);
     }
 
     public function sync(bool $ingestToDatabase): array
@@ -53,47 +57,81 @@ class PollingService
                 throw new RuntimeException('GeminiService and WorkoutRepository are required for ingestion mode.');
 
             $seenIds = [];
-            foreach ($unseenPages as $page)
+            
+            $batches = array_chunk($unseenPages, $this->geminiBatchSize, true);
+            
+            foreach ($batches as $batchIndex => $batch)
             {
-                $parsed = $this->gemini->parseWorkoutLog($page['content'] ?? '');
-                if (!$parsed)
-                {
-                    $stats['parsed_failures']++;
+                error_log('Polling batch ' . ($batchIndex + 1) . '/' . count($batches) . ' with ' . count($batch) . ' page(s)');
 
-                    $httpCode = $this->gemini->getLastHttpCode();
-                    
-                    // check for Gemini 429 TooManyRequests rate limit error
-                    if ($httpCode === 429)
+                // Prepare batch with id and content
+                $batchPages = array_map(fn($page) => [
+                    'id' => $page['id'] ?? '',
+                    'content' => $page['content'] ?? ''
+                ], $batch);
+                
+                $batchResults = $this->gemini->parseWorkoutLogBatch($batchPages);
+                
+                // Check for rate limiting
+                $httpCode = $this->gemini->getLastHttpCode();
+                if ($httpCode === 429)
+                {
+                    $retryAfter = $this->gemini->getRateLimitRetryAfter();
+                    $apiError = $this->gemini->getLastError();
+                    $stats['stopped_early'] = true;
+                    $retryMessage = $retryAfter !== null ? " Retry in {$retryAfter}s." : '';
+                    $stats['stop_reason'] = "Rate limited by Gemini API (429).{$retryMessage} " . ($apiError ? "Gemini said: {$apiError}" : 'Check AI Studio for whether RPM, TPM, or RPD was exceeded.');
+                    $hasHardFailure = true;
+                    break;
+                }
+                
+                if ($httpCode === 404)
+                {
+                    $stats['stopped_early'] = true;
+                    $stats['stop_reason'] = 'Gemini returned 404 Not Found. Check configured model/version.';
+                    $hasHardFailure = true;
+                    break;
+                }
+
+                if ($httpCode !== 200)
+                {
+                    $stats['stopped_early'] = true;
+                    $stats['stop_reason'] = 'Gemini request failed with HTTP ' . ($httpCode ?? 0) . ': ' . ($this->gemini->getLastError() ?? 'Unknown error');
+                    $hasHardFailure = true;
+                    break;
+                }
+                
+                // Process results from this batch
+                foreach ($batchResults as $pageId => $parsed)
+                {
+                    if (!$parsed)
                     {
-                        $retryAfter = $this->gemini->getRateLimitRetryAfter();
-                        $stats['stopped_early'] = true;
-                        $stats['stop_reason'] = "Rate limited by Gemini API (429). Quota exceeded. Retry in {$retryAfter}s or upgrade to paid tier.";
-                        $hasHardFailure = true;
-                        break;
+                        $stats['parsed_failures']++;
+                        continue;
                     }
-                    
-                    // check for Gemini 404 NotFound error
-                    if ($httpCode === 404)
+
+                    // Ensure parsed data is an array (Gemini might return strings in some cases)
+                    if (!is_array($parsed))
                     {
-                        $stats['stopped_early'] = true;
-                        $stats['stop_reason'] = 'Gemini returned 404 Not Found. Check configured model/version.';
-                        $hasHardFailure = true;
-                        break;
+                        $stats['parsed_failures']++;
+                        error_log("Warning: Gemini returned non-array data for page $pageId: " . gettype($parsed));
+                        continue;
                     }
 
-                    continue;
+                    if ($this->repository->saveWorkout($parsed))
+                    {
+                        $stats['parsed_success']++;
+                        if (!empty($pageId))
+                            $seenIds[] = $pageId;
+                    }
+                    else
+                    {
+                        $stats['parsed_failures']++;
+                    }
                 }
 
-                if ($this->repository->saveWorkout($parsed))
-                {
-                    $stats['parsed_success']++;
-                    if (!empty($page['id']))
-                        $seenIds[] = $page['id'];
-                }
-                else
-                {
-                    $stats['parsed_failures']++;
-                }
+                if ($this->batchDelaySeconds > 0 && $batchIndex < count($batches) - 1)
+                    usleep((int)($this->batchDelaySeconds * 1_000_000));
             }
 
             if (!empty($seenIds))
@@ -101,8 +139,7 @@ class PollingService
         }
         else
         {
-            $allIds = array_values(array_filter(array_map(fn($page) => $page['id'] ?? null, $pages)));
-            $state = $this->syncState->markSeen($state, $allIds);
+            // Cache-only polls should not consume pages that still need database ingestion.
         }
 
         if (!$hasHardFailure)

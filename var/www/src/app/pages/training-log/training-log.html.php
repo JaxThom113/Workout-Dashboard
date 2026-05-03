@@ -15,10 +15,10 @@
             <span>just loaded from Notion!</span>
         <?php endif; ?>
 
-        <a href="/?page=training-log&refresh=1">🔄 Refresh from Notion</a>
+        <a href="/?page=training-log&refresh=1">Refresh from Notion</a>
         
         <?php if (GEMINI_API_KEY && GEMINI_MODEL && !empty($workout_pages)): ?>
-            <a href="/?page=training-log&process=1">💾 Update Database</a>
+            <a href="/?page=training-log&process=1">Update Database</a>
         <?php endif; ?>
     </div>
 </div>

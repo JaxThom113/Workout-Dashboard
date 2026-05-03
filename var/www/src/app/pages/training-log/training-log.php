@@ -5,6 +5,8 @@ define('NOTION_TOKEN', $env['NOTION_TOKEN'] ?? '');
 define('TRAINING_PAGE_ID', $env['TRAINING_PAGE_ID'] ?? '');
 define('GEMINI_API_KEY', $env['GEMINI_API_KEY'] ?? '');
 define('GEMINI_MODEL', $env['GEMINI_MODEL'] ?? '');
+define('GEMINI_BATCH_SIZE', (int)($env['GEMINI_BATCH_SIZE'] ?? 5));
+define('GEMINI_BATCH_DELAY_SECONDS', (float)($env['GEMINI_BATCH_DELAY_SECONDS'] ?? 5.0));
 
 // Same paths as var/www/scripts/poll_training_logs.php ($rootDir/database/...)
 define('CACHE_FILE', __DIR__ . '/../../../../database/cache/cache.json');
@@ -30,14 +32,6 @@ if ($workout_pages === null)
     $from_cache = false;
     $workout_pages = $notionService->getWorkoutPages();
     $cache->save($workout_pages);
-
-    // Align with poller: avoid treating every page as "new" on next ingest run.
-    $state = $syncState->load();
-    $allIds = array_values(array_filter(array_map(fn($page) => $page['id'] ?? null, $workout_pages)));
-    $state = $syncState->markSeen($state, $allIds);
-    $state = $syncState->touchPoll($state);
-    $state = $syncState->touchSuccess($state);
-    $syncState->save($state);
 }
 
 $db_message = null;
@@ -49,7 +43,7 @@ if (GEMINI_API_KEY && GEMINI_MODEL && isset($_GET['process']))
     {
         $gemini = new GeminiService(GEMINI_API_KEY, GEMINI_MODEL);
         $repo = new WorkoutRepository(Database::getConnection());
-        $pollingService = new PollingService($notionService, $cache, $syncState, $gemini, $repo);
+        $pollingService = new PollingService($notionService, $cache, $syncState, $gemini, $repo, GEMINI_BATCH_SIZE, GEMINI_BATCH_DELAY_SECONDS);
 
         $stats = $pollingService->sync(true);
         $workout_pages = $cache->load() ?? $workout_pages;

@@ -1,0 +1,36 @@
+You will parse multiple workout logs. For EACH log, extract the data in this JSON format:
+{
+    "date": "YYYY-MM-DD",
+    "type": "push", "pull", "legs", (or another named type)
+    "exercises": [
+        {
+            "name": "exercise name",
+            "number": 1,
+            "notes": "any notes",
+            "sets": [
+                {
+                    "number": 1,
+                    "reps": 8,
+                    "warmup": false,
+                    "dropset": false,
+                    "failure": false
+                }
+            ]
+        }
+    ]
+}
+
+Return a JSON object where keys are the page IDs and values are the parsed workout data.
+If a page cannot be parsed, use null as the value.
+
+Example response format:
+{
+  "page-id-1": { parsed data },
+  "page-id-2": { parsed data },
+  "page-id-3": null
+}
+
+WORKOUT LOGS TO PARSE:
+{{batchContent}}
+
+Return ONLY valid JSON, no additional text.

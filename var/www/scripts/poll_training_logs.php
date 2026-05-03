@@ -9,6 +9,8 @@ $notionToken = $env['NOTION_TOKEN'] ?? '';
 $trainingPageId = $env['TRAINING_PAGE_ID'] ?? '';
 $geminiApiKey = $env['GEMINI_API_KEY'] ?? '';
 $geminiModel = $env['GEMINI_MODEL'] ?? '';
+$geminiBatchSize = (int)($env['GEMINI_BATCH_SIZE'] ?? 5);
+$geminiBatchDelaySeconds = (float)($env['GEMINI_BATCH_DELAY_SECONDS'] ?? 5.0);
 
 if ($notionToken === '' || $trainingPageId === '')
 {
@@ -26,6 +28,12 @@ require_once $rootDir . '/src/services/PollingService.php';
 
 $lockFile = $rootDir . '/database/state/poll_training_logs.lock';
 $logFile = $rootDir . '/database/logs/training_log_poll.log';
+
+foreach ([dirname($lockFile), dirname($logFile)] as $dir)
+{
+    if (!is_dir($dir))
+        mkdir($dir, 0777, true);
+}
 
 $lockHandle = fopen($lockFile, 'c+');
 if (!$lockHandle)
@@ -77,7 +85,7 @@ try
         }
     }
 
-    $poller = new PollingService($notionService, $cache, $syncState, $gemini, $repository);
+    $poller = new PollingService($notionService, $cache, $syncState, $gemini, $repository, $geminiBatchSize, $geminiBatchDelaySeconds);
     $stats = $poller->sync($ingestToDatabase);
 
     logPollLine(
@@ -95,7 +103,10 @@ try
         ])
     );
 
-    echo "Poll complete. scanned={$stats['scanned_pages']} new={$stats['new_pages']} success={$stats['parsed_success']} failures={$stats['parsed_failures']}\n";
+    echo "Poll complete. scanned={$stats['scanned_pages']} new={$stats['new_pages']} success={$stats['parsed_success']} failures={$stats['parsed_failures']}";
+    if ($stats['stopped_early'])
+        echo " stopped_early=true reason=\"" . ($stats['stop_reason'] ?? 'Unknown') . "\"";
+    echo "\n";
 }
 catch (Throwable $e)
 {

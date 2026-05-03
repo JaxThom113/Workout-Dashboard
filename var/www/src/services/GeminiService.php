@@ -12,11 +12,20 @@ class GeminiService
     private ?int $lastHttpCode = null;
     private ?int $rateLimitRetryAfter = null;
 
+    public function __construct(string $geminiApiKey, string $geminiModel) 
+    {
+        $this->geminiApiKey = $geminiApiKey;
+        $this->geminiModel = $geminiModel;
+    }
+
     public function parseWorkoutLog(string $htmlContent): ?array 
     {
         $prompt = $this->buildPrompt($htmlContent);
 
         $payload = [
+            'generationConfig' => [
+                'responseMimeType' => 'application/json',
+            ],
             'contents' => [
                 [
                     'parts' => [
@@ -30,16 +39,14 @@ class GeminiService
         return $this->extractStructuredData($response);
     }
 
-    /**
-     * Parse multiple workout logs in a single API request
-     * @param array $pages Array of pages with keys: id, content
-     * @return array Map of page_id => parsed_data (null if failed)
-     */
     public function parseWorkoutLogBatch(array $pages): array
     {
         $prompt = $this->buildBatchPrompt($pages);
 
         $payload = [
+            'generationConfig' => [
+                'responseMimeType' => 'application/json',
+            ],
             'contents' => [
                 [
                     'parts' => [
@@ -57,6 +64,9 @@ class GeminiService
     {
         // will call Gemini once to check if given model is valid
         $payload = [
+            'generationConfig' => [
+                'responseMimeType' => 'application/json',
+            ],
             'contents' => [
                 [
                     'parts' => [
@@ -96,50 +106,18 @@ class GeminiService
     private function buildBatchPrompt(array $pages): string
     {
         $workoutLogs = [];
-        foreach ($pages as $page) {
+        foreach ($pages as $page) 
+        {
             $workoutLogs[] = "---PAGE ID: {$page['id']}---\n{$page['content']}";
         }
 
         $batchContent = implode("\n\n", $workoutLogs);
 
-        return <<<PROMPT
-You will parse multiple workout logs. For EACH log, extract the data in this JSON format:
-{
-    "date": "YYYY-MM-DD",
-    "type": "push", "pull", "legs", (or another named type)
-    "exercises": [
-        {
-            "name": "exercise name",
-            "number": 1,
-            "notes": "any notes",
-            "sets": [
-                {
-                    "number": 1,
-                    "reps": 8,
-                    "warmup": false,
-                    "dropset": false,
-                    "failure": false
-                }
-            ]
-        }
-    ]
-}
+        // get the batch prompt from a text file
+        $template = file_get_contents(__DIR__ . '/prompt_batch.txt');
+        $prompt = str_replace('{{batchContent}}', $batchContent, $template);
 
-Return a JSON object where keys are the page IDs and values are the parsed workout data.
-If a page cannot be parsed, use null as the value.
-
-Example response format:
-{
-  "page-id-1": { parsed data },
-  "page-id-2": { parsed data },
-  "page-id-3": null
-}
-
-WORKOUT LOGS TO PARSE:
-$batchContent
-
-Return ONLY valid JSON, no additional text.
-PROMPT;
+        return $prompt;
     }
 
     private function makeRequest(array $payload): ?array 
@@ -157,6 +135,13 @@ PROMPT;
         ]);
 
         $result = curl_exec($ch);
+        if ($result === false)
+        {
+            $this->lastError = 'cURL error: ' . curl_error($ch);
+            $this->lastHttpCode = 0;
+            return null;
+        }
+
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $this->lastHttpCode = $httpCode;
 
@@ -194,12 +179,16 @@ PROMPT;
         if (!$response || empty($response['candidates'][0]['content']['parts'][0]['text']))
             return null;
 
-        $text = $response['candidates'][0]['content']['parts'][0]['text'];
-        
-        // clean up markdown code blocks if present
-        $text = preg_replace('/```json\s*|\s*```/', '', $text);
-        
-        return json_decode($text, true);
+        $text = $this->normalizeJsonText($response['candidates'][0]['content']['parts'][0]['text']);
+        $parsed = json_decode($text, true);
+
+        if (!is_array($parsed))
+        {
+            $this->lastError = 'Failed to decode Gemini JSON: ' . json_last_error_msg();
+            return null;
+        }
+
+        return $parsed;
     }
 
     private function extractBatchStructuredData(?array $response, array $pages): array
@@ -207,24 +196,46 @@ PROMPT;
         $result = [];
         
         // Initialize all page IDs to null (in case parsing fails)
-        foreach ($pages as $page) {
+        foreach ($pages as $page) 
+        {
             $result[$page['id']] = null;
         }
 
         if (!$response || empty($response['candidates'][0]['content']['parts'][0]['text']))
             return $result;
 
-        $text = $response['candidates'][0]['content']['parts'][0]['text'];
-        
-        // clean up markdown code blocks if present
-        $text = preg_replace('/```json\s*|\s*```/', '', $text);
+        $text = $this->normalizeJsonText($response['candidates'][0]['content']['parts'][0]['text']);
         
         $parsed = json_decode($text, true);
         if (!is_array($parsed))
+        {
+            $this->lastError = 'Failed to decode Gemini batch JSON: ' . json_last_error_msg();
             return $result;
+        }
 
-        // Merge the parsed results with our initialized result array
-        return array_merge($result, $parsed);
+        foreach ($pages as $page)
+        {
+            $pageId = $page['id'] ?? '';
+            if ($pageId !== '' && array_key_exists($pageId, $parsed))
+                $result[$pageId] = $parsed[$pageId];
+        }
+
+        return $result;
+    }
+
+    private function normalizeJsonText(string $text): string
+    {
+        $text = trim($text);
+        $text = preg_replace('/^```(?:json)?\s*|\s*```$/', '', $text);
+        $text = trim($text);
+
+        $firstBrace = strpos($text, '{');
+        $lastBrace = strrpos($text, '}');
+
+        if ($firstBrace !== false && $lastBrace !== false && $lastBrace > $firstBrace)
+            return substr($text, $firstBrace, $lastBrace - $firstBrace + 1);
+
+        return $text;
     }
 }
 ?>

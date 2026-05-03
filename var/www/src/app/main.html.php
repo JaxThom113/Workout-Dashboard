@@ -16,7 +16,6 @@
 </head>
 <body>
     <main>
-        <?php require __DIR__ . '/components/debug/debug.php'; ?>
 
         <?php require __DIR__ . '/components/navbar/navbar.php'; ?>
 
