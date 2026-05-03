@@ -76,4 +76,39 @@ if (GEMINI_API_KEY && GEMINI_MODEL && isset($_GET['process']))
 
 $cache_age = $cache->ageMinutes();
 
+$training_log_years = [2024, 2025, 2026];
+
+// year => month (1–12) => list of workout pages (same shape for $workouts_other_nested)
+$workouts_nested = [];
+foreach ($training_log_years as $y)
+    $workouts_nested[$y] = [];
+
+$workouts_other_nested = [];
+$workouts_unparsed = [];
+
+foreach ($workout_pages as $page)
+{
+    $title = $page['title'] ?? '';
+    $year = null;
+    $month = null;
+
+    if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/', $title, $m))
+    {
+        $month = (int) $m[1];
+        $day = (int) $m[2];
+        $year = (int) date('Y', mktime(0, 0, 0, $month, $day, (int) $m[3]));
+    }
+
+    if ($year !== null && $month !== null && isset($workouts_nested[$year]))
+        $workouts_nested[$year][$month][] = $page;
+    elseif ($year !== null && $month !== null)
+    {
+        if (!isset($workouts_other_nested[$year]))
+            $workouts_other_nested[$year] = [];
+        $workouts_other_nested[$year][$month][] = $page;
+    }
+    else
+        $workouts_unparsed[] = $page;
+}
+
 require __DIR__ . '/training-log.html.php';

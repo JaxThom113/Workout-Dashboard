@@ -116,7 +116,6 @@
     border-radius: 5px;
     margin-bottom: 1rem;
     font-size: 0.95rem;
-    animation: slideDown 0.3s ease;
 }
 
 .db-message-success {
@@ -137,13 +136,46 @@
     border: 1px solid #f5c6cb;
 }
 
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+/* 
+    Nested Bootstrap accordions: year → month → workout 
+*/
+.training-log-bootstrap-accordions .training-log-accordion-nested {
+    --tl-nested-indent: 0.5rem;
+}
+
+.training-log-bootstrap-accordions .training-log-accordion-nested .accordion-item {
+    border-radius: 0.375rem;
+}
+
+.training-log-bootstrap-accordions .training-log-accordion-root > .accordion-item > .accordion-collapse > .accordion-body > .training-log-accordion-nested {
+    margin-left: var(--tl-nested-indent);
+}
+
+.training-log-bootstrap-accordions .training-log-accordion-nested .accordion-collapse > .accordion-body > .training-log-accordion-nested {
+    margin-left: var(--tl-nested-indent);
+}
+
+.training-log-bootstrap-accordions h3.accordion-header,
+.training-log-bootstrap-accordions h4.accordion-header {
+    margin: 0;
+    font-size: 1rem;
+    width: 100%;
+}
+
+.training-log-bootstrap-accordions .accordion-header .accordion-button {
+    font-size: 0.95rem;
+}
+
+.training-log-other-heading {
+    color: #1a1a2e;
+}
+
+.training-log-empty-branch {
+    color: #888;
+    font-style: italic;
+    font-size: 0.95rem;
+}
+
+.workout-entry-panel {
+    padding-top: 1rem;
 }

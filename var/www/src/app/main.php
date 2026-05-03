@@ -25,24 +25,26 @@ if (isset($_GET['refresh']))
     Database Connection (debug output)
 */
 
+$debugOutput = "";
 try 
 {
     $conn = Database::connect();
-    echo "✓ Successfully connected to AWS RDS!<br>";
-    echo "Database: " . htmlspecialchars($conn->get_charset()->charset) . "<br>";
+    $debugOutput .= "✓ Successfully connected to AWS RDS!<br>";
+    $debugOutput .= "Database: " . htmlspecialchars($conn->get_charset()->charset) . "<br>";    
     
     // Test query
     $result = $conn->query("SELECT VERSION()");
     if ($result) 
     {
         $row = $result->fetch_row();
-        echo "MySQL Version: " . htmlspecialchars($row[0]) . "<br>";
+        $debugOutput .= "MySQL Version: " . htmlspecialchars($row[0]) . "<br>";
     }
 } 
 catch (Exception $e) 
 {
-    echo "✗ Connection failed: " . htmlspecialchars($e->getMessage());
+    $debugOutput .= "Connection failed: " . htmlspecialchars($e->getMessage());
 }
+
 
 /*
     Routing
